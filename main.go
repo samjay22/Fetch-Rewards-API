@@ -1,11 +1,11 @@
 package main
 
 import (
-	"Fetch-Rewards-API/Controllers"
-	"Fetch-Rewards-API/Interfaces"
-	"Fetch-Rewards-API/Middleware"
-	"Fetch-Rewards-API/Services"
-	"Fetch-Rewards-API/Structs"
+	"Fetch-Rewards-API/Backend/Controllers"
+	Interfaces2 "Fetch-Rewards-API/Backend/Interfaces"
+	"Fetch-Rewards-API/Backend/Middleware"
+	Services2 "Fetch-Rewards-API/Backend/Services"
+	"Fetch-Rewards-API/Shared/Structs"
 	"database/sql"
 	"fmt"
 	"github.com/labstack/echo/v4"
@@ -17,7 +17,7 @@ import (
 )
 
 func loadConfig(logger *zerolog.Logger) (*Structs.Config, error) {
-	f, err := os.Open("Configs/ENV.yml")
+	f, err := os.Open("Backend/Configs/ENV.yml")
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to open config.yml")
 		return nil, err
@@ -36,24 +36,27 @@ func loadConfig(logger *zerolog.Logger) (*Structs.Config, error) {
 }
 
 type ServicesContainer struct {
-	dataService Interfaces.DatabaseService
+	dataService    Interfaces2.DatabaseService
+	receiptService Interfaces2.ReceiptService
 }
 
 func initServices(logger *zerolog.Logger, cfg *Structs.Config) (*ServicesContainer, error) {
 
-	args := Services.NewDatabaseServiceArgs{
+	args := Services2.NewDatabaseServiceArgs{
 		Logger: logger,
 		Cfg:    cfg,
 		Delegate: func(db *sql.DB) {
-			db.SetConnMaxLifetime(time.Second * 5)
-			db.SetMaxOpenConns(100)
-			db.SetConnMaxIdleTime(100)
+			db.SetConnMaxLifetime(time.Minute * 5)
+			db.SetConnMaxIdleTime(time.Minute)
+			db.SetMaxOpenConns(2)
 		},
 	}
 
-	dataService := Services.NewDatabaseService(&args)
+	dataService := Services2.NewDatabaseService(&args)
+	recService := Services2.NewReceiptService(logger, dataService)
 	return &ServicesContainer{
-		dataService: dataService,
+		dataService:    dataService,
+		receiptService: recService,
 	}, nil
 }
 
@@ -73,7 +76,7 @@ type controllerArgs struct {
 }
 
 func registerControllers(args *controllerArgs) error {
-	Controllers.RegisterReceiptController(args.logger, args.echoClient, args.container.dataService)
+	Controllers.RegisterReceiptController(args.logger, args.echoClient, args.container.receiptService)
 	return nil
 }
 
@@ -99,9 +102,9 @@ func main() {
 
 	logger.Log().Msg("Loaded Services!")
 
-	//Register API controllers and middleware
+	//Register API controllers, middleware, and static pages
 	networkClient := echo.New()
-
+	networkClient.Static("/", "Frontend/Pages")
 	registerMiddleware(networkClient, &logger)
 	logger.Log().Msg("Loaded Middleware!")
 

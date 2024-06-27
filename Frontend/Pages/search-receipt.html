@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Receipt</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background-color: #343a40; /* Dark gray navbar */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Lighter border */
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .search-inputs {
+            margin-bottom: 20px;
+        }
+
+        .receipts-container {
+            padding-top: 20px;
+        }
+
+        .receipt-card {
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.125); /* Card border */
+            border-radius: 8px; /* Rounded corners */
+        }
+
+        .card-header {
+            background-color: #f8f9fa; /* Light gray header */
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125); /* Divider line */
+            padding: 10px;
+        }
+
+        .card-body {
+            padding: 10px;
+        }
+
+        .pagination {
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .page-link {
+            color: #007bff; /* Blue page link */
+            border-color: #007bff; /* Blue border color */
+        }
+
+        .page-link:hover {
+            color: #0056b3; /* Darker blue on hover */
+            text-decoration: none; /* Remove underline */
+            background-color: #f8f9fa; /* Light gray background on hover */
+        }
+
+        .page-item.active .page-link {
+            background-color: #007bff; /* Active page background color */
+            border-color: #007bff; /* Active page border color */
+        }
+
+        .btn-primary {
+            background-color: #007bff; /* Primary button color */
+            border-color: #007bff; /* Primary button border color */
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            border-color: #0056b3; /* Darker blue border on hover */
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+        <a class="navbar-brand" href="#">Receipt App</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="index.html">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="add-receipt.html">Add Receipt</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="search-receipt.html">Search Receipt</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-5">
+    <div class="row justify-content-center search-inputs">
+        <div class="col-lg-10">
+            <h1 class="text-center mb-4">Search Receipt</h1>
+            <div class="input-group">
+                <span class="input-group-text">ID</span>
+                <input id="searchById" type="text" class="form-control" placeholder="Search by ID" aria-label="Search by ID" oninput="debouncedFetchReceipts()">
+                <span class="input-group-text">Retailer</span>
+                <input id="searchByRetailer" type="text" class="form-control" placeholder="Search by Retailer" aria-label="Search by Retailer" oninput="debouncedFetchReceipts()">
+                <span class="input-group-text">Purchase Date</span>
+                <input id="searchByPurchaseDate" type="text" class="form-control" placeholder="Search by Purchase Date" aria-label="Search by Purchase Date" oninput="debouncedFetchReceipts()">
+                <span class="input-group-text">Purchase Time</span>
+                <input id="searchByPurchaseTime" type="text" class="form-control" placeholder="Search by Purchase Time" aria-label="Search by Purchase Time" oninput="debouncedFetchReceipts()">
+                <span class="input-group-text">Total</span>
+                <input id="searchByTotal" type="text" class="form-control" placeholder="Search by Total" aria-label="Search by Total" oninput="debouncedFetchReceipts()">
+                <span class="input-group-text">Fetch Points</span>
+                <input id="searchByPoints" type="text" class="form-control" placeholder="Search by Fetch Points" aria-label="Search by Fetch Points" oninput="debouncedFetchReceipts()">
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center receipts-container" id="receiptsContainer">
+        <!-- Receipts will be dynamically populated here -->
+    </div>
+
+    <nav aria-label="Pagination">
+        <ul id="pagination" class="pagination justify-content-center mt-3">
+            <!-- Pagination buttons will be dynamically populated here -->
+        </ul>
+    </nav>
+
+    <div class="row justify-content-center mt-3">
+        <div class="col-lg-10">
+            <button id="prevPageBtn" class="btn btn-primary" onclick="prevPage()">Previous Page</button>
+            <button id="nextPageBtn" class="btn btn-primary ms-2" onclick="nextPage()">Next Page</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Custom JavaScript -->
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+    const pageSize = 10; // Number of items per page
+    let debounceTimer;
+
+    // Function to debounce input and fetch receipts
+    function debouncedFetchReceipts() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(fetchReceipts, 300); // Adjust debounce delay as needed (e.g., 300ms)
+    }
+
+    // Function to fetch receipts based on search criteria and pagination
+    function fetchReceipts() {
+        const searchTerm = {
+            id: document.getElementById('searchById').value,
+            retailer: document.getElementById('searchByRetailer').value,
+            purchaseDate: document.getElementById('searchByPurchaseDate').value,
+            purchaseTime: document.getElementById('searchByPurchaseTime').value,
+            total: document.getElementById('searchByTotal').value,
+            points: document.getElementById('searchByPoints').value
+        };
+
+        const params = new URLSearchParams();
+        for (const key in searchTerm) {
+            if (searchTerm[key]) {
+                params.append(key, searchTerm[key]);
+            }
+        }
+        params.append('page', currentPage);
+
+        fetch(`/receipts?${params.toString()}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear previous results
+                document.getElementById('receiptsContainer').innerHTML = '';
+
+                // Populate receipts
+                data.receipts.forEach(receipt => {
+                    const card = `
+                            <div class="card receipt-card">
+                                <div class="card-header">
+                                    <strong>ID:</strong> ${receipt.id} |
+                                    <strong>Retailer:</strong> ${receipt.retailer} |
+                                    <strong>Purchase Date:</strong> ${receipt.purchaseDate} |
+                                    <strong>Purchase Time:</strong> ${receipt.purchaseTime} |
+                                    <strong>Total:</strong> $${receipt.total} |
+                                    <strong>Fetch Points:</strong> ${receipt.points}
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-group list-group-flush">
+                                        ${receipt.items.map(item => `
+                                            <li class="list-group-item">${item.shortDescription}: $${item.price}</li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                    document.getElementById('receiptsContainer').innerHTML += card;
+                });
+
+                // Update pagination
+                updatePagination(data.maxPages);
+            })
+            .catch(error => console.error('Error fetching receipts:', error));
+    }
+
+    // Function to update pagination buttons
+    function updatePagination(totalPages) {
+        let paginationHTML = '';
+
+        for (let page = Math.max(1, currentPage - 2); page <= Math.min(totalPages, currentPage + 2); page++) {
+            paginationHTML += `
+                    <li class="page-item ${page === currentPage ? 'active' : ''}">
+                        <button class="page-link" onclick="goToPage(${page})">${page}</button>
+                    </li>
+                `;
+        }
+
+        document.getElementById('pagination').innerHTML = paginationHTML;
+        totalPages = totalPages;
+    }
+
+    // Function to navigate to a specific page
+    function goToPage(page) {
+        currentPage = page;
+        fetchReceipts();
+    }
+
+    // Function to go to the previous page
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            fetchReceipts();
+        }
+    }
+
+    // Function to go to the next page
+    function nextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            fetchReceipts();
+        }
+    }
+
+    // Initial fetch on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchReceipts();
+    });
+</script>
+</body>
+</html>

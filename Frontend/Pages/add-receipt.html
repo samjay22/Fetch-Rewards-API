@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Receipt</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container py-5">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="#">Receipt App</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="index.html">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="add-receipt.html">Add Receipt</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="search-receipt.html">Search Receipt</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="text-center mb-4">Submit Receipt</h1>
+        <form id="receiptForm">
+            <div class="mb-3">
+                <label for="retailer" class="form-label">Retailer:</label>
+                <input type="text" id="retailer" name="retailer" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="purchaseDate" class="form-label">Purchase Date:</label>
+                <input type="date" id="purchaseDate" name="purchaseDate" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="purchaseTime" class="form-label">Purchase Time:</label>
+                <input type="time" id="purchaseTime" name="purchaseTime" class="form-control" required>
+            </div>
+
+            <div class="mb-3" id="items">
+                <label for="items" class="form-label">Items:</label>
+                <div class="item mb-2">
+                    <input type="text" name="items[0][shortDescription]" class="form-control" placeholder="Short Description" required>
+                    <input type="number" step="0.01" name="items[0][price]" class="form-control" placeholder="Price" required>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="addItem()">Add Item</button>
+            </div>
+
+            <div class="mb-3">
+                <label for="total" class="form-label">Total:</label>
+                <input type="number" step="0.01" id="total" name="total" class="form-control" required>
+            </div>
+
+            <button type="button" class="btn btn-primary" onclick="submitForm()">Submit Receipt</button>
+        </form>
+    </div>
+</div>
+
+<!-- Bootstrap JS (optional for some features like tooltips, popovers, etc.) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Custom JavaScript -->
+<script>
+    function addItem() {
+        const newItem = `<div class="item mb-2">
+                <input type="text" name="items[${Date.now()}][shortDescription]" class="form-control" placeholder="Short Description" required>
+                <input type="number" step="0.01" name="items[${Date.now()}][price]" class="form-control" placeholder="Price" required>
+            </div>`;
+        document.getElementById('items').insertAdjacentHTML('beforeend', newItem);
+    }
+
+    function submitForm() {
+        const form = document.getElementById('receiptForm');
+        const formData = new FormData(form);
+
+        // Convert FormData to JSON object
+        const jsonData = {};
+        formData.forEach((value, key) => {
+            if (key.includes('items')) {
+                const [index, field] = key.match(/\d+/g);
+                if (!jsonData.items) jsonData.items = [];
+                if (!jsonData.items[index]) jsonData.items[index] = {};
+                jsonData.items[index][field] = value;
+            } else {
+                jsonData[key] = value;
+            }
+        });
+
+        // Convert JSON object to JSON string
+        const jsonString = JSON.stringify(jsonData);
+
+        // Send JSON string to backend endpoint
+        fetch('/receipts/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: jsonString,
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+                // Handle success response here
+                alert('Receipt submitted successfully!');
+                form.reset();
+
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                // Handle error condition here
+                alert('Error submitting receipt');
+            });
+    }
+</script>
+</body>
+</html>
