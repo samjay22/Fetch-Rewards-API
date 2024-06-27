@@ -18,14 +18,16 @@ import (
 )
 
 type receiptService struct {
-	logger      *zerolog.Logger
-	dataService Interfaces2.DatabaseService
+	logger       *zerolog.Logger
+	dataService  Interfaces2.DatabaseService
+	receiptCache map[string]*Structs2.Receipt // Cache for receipts
 }
 
 func NewReceiptService(logger *zerolog.Logger, dataService Interfaces2.DatabaseService) Interfaces2.ReceiptService {
 	return &receiptService{
-		logger:      logger,
-		dataService: dataService,
+		logger:       logger,
+		dataService:  dataService,
+		receiptCache: make(map[string]*Structs2.Receipt),
 	}
 }
 
@@ -54,6 +56,9 @@ func (rt *receiptService) ProcessReceipt(receiptEntity *Structs2.Receipt) error 
 		return fmt.Errorf("failed to process receipt: %w", err)
 	}
 
+	// Update cache with the processed receipt
+	rt.receiptCache[receiptEntity.Id] = receiptEntity
+
 	return nil
 }
 
@@ -67,12 +72,15 @@ func (rt *receiptService) GetReceipts(ctx context.Context, filterBy *Interfaces2
 	}
 
 	// Prepare the filter function for GetEntityByFilterRule
-	filterFunc := rt.buildReceiptsFilterFunc(ctx, filterBy, pageSize, offset)
+	var filterFunc func(interface{}) (interface{}, error)
+	filterFunc = rt.buildReceiptsFilterFunc(ctx, filterBy, pageSize, offset)
 
 	// Call GetEntityByFilterRule with the filter function
-	data, err := rt.dataService.GetEntityByFilterRule(ctx, filterFunc)
+	var err error
+	var data interface{}
+	data, err = rt.dataService.GetEntityByFilterRule(ctx, filterFunc)
 	if err != nil {
-		return nil, err
+		rt.logger.Info().Err(err)
 	}
 
 	// Assert and return the receipts
@@ -85,6 +93,11 @@ func (rt *receiptService) GetReceipts(ctx context.Context, filterBy *Interfaces2
 }
 
 func (rt *receiptService) getReceiptById(id string) (*Structs2.Receipt, error) {
+	// Check if receipt exists in cache
+	if receipt, ok := rt.receiptCache[id]; ok {
+		return receipt, nil
+	}
+
 	// Query the database for the receipt with the given ID
 	r, err := rt.dataService.GetEntityByFilterRule(context.Background(), func(dbI interface{}) (interface{}, error) {
 		receipt := &Structs2.Receipt{}
@@ -105,6 +118,9 @@ func (rt *receiptService) getReceiptById(id string) (*Structs2.Receipt, error) {
 			return nil, err
 		}
 		receipt.Items = items
+
+		// Cache the receipt
+		rt.receiptCache[id] = receipt
 
 		return receipt, nil
 	})
@@ -150,18 +166,21 @@ func (rt *receiptService) insertReceiptAndItems(receiptEntity *Structs2.Receipt,
 			return err
 		}
 
-		// Insert each PurchasedItem into 'items' table
+		// Insert items into 'items' table using bulk insert
 		stmt, err := tx.PrepareContext(context.Background(), "INSERT INTO items (Id, ReceiptId, ShortDescription, Price) VALUES (?, ?, ?, ?)")
 		if err != nil {
 			return err
 		}
 		defer stmt.Close()
 
+		values := make([]interface{}, 0, len(receiptEntity.Items)*4)
 		for _, item := range receiptEntity.Items {
-			_, err = stmt.ExecContext(context.Background(), item.Id, receiptEntity.Id, item.ShortDescription, item.Price)
-			if err != nil {
-				return err
-			}
+			values = append(values, item.Id, receiptEntity.Id, item.ShortDescription, item.Price)
+		}
+
+		_, err = stmt.ExecContext(context.Background(), values...)
+		if err != nil {
+			return err
 		}
 
 		return nil
@@ -172,18 +191,20 @@ func (rt *receiptService) insertReceiptAndItems(receiptEntity *Structs2.Receipt,
 		return fmt.Errorf("failed to insert receipt into database: %w", err)
 	}
 
+	// Update cache with the processed receipt
+	rt.receiptCache[receiptEntity.Id] = receiptEntity
+
 	return nil
 }
 
 func (rt *receiptService) getItemsForReceipt(db *sql.DB, receiptId string) ([]Structs2.PurchasedItem, error) {
-	var items []Structs2.PurchasedItem
-
 	rows, err := db.QueryContext(context.Background(), "SELECT Id, ShortDescription, Price FROM Items WHERE ReceiptId = ?", receiptId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	var items []Structs2.PurchasedItem
 	for rows.Next() {
 		var item Structs2.PurchasedItem
 		err := rows.Scan(&item.Id, &item.ShortDescription, &item.Price)
@@ -291,9 +312,6 @@ func (rt *receiptService) buildReceiptsFilterFunc(ctx context.Context, filterBy 
 		query := fmt.Sprintf("SELECT Id, Retailer, PurchaseDate, PurchaseTime, Total, Points FROM Receipts WHERE %s ORDER BY Id DESC LIMIT %d OFFSET %d",
 			whereClause, pageSize, offset)
 
-		// Log the constructed query and arguments (for debugging purposes)
-		rt.logger.Debug().Str("query", query).Interface("args", args).Msg("Executing SQL query")
-
 		// Execute the query with arguments
 		rows, err := dbInstance.QueryContext(ctx, query, args...)
 		if err != nil {
@@ -342,4 +360,18 @@ func (rt *receiptService) buildReceiptsFilterFunc(ctx context.Context, filterBy 
 			MaxPages: totalPages,
 		}, nil
 	}
+}
+
+func (rt *receiptService) invalidateCache(id string) {
+	delete(rt.receiptCache, id)
+}
+
+// Helper functions (not part of the interface methods)
+
+func (rt *receiptService) clearCache() {
+	rt.receiptCache = make(map[string]*Structs2.Receipt)
+}
+
+func (rt *receiptService) cacheReceipt(receipt *Structs2.Receipt) {
+	rt.receiptCache[receipt.Id] = receipt
 }

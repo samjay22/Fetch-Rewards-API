@@ -7,9 +7,63 @@
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa; /* Light gray background */
+        }
+
+        .navbar {
+            background-color: #343a40; /* Dark gray navbar */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Lighter border */
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        form {
+            background-color: #ffffff; /* White background for form */
+            padding: 20px;
+            border: 1px solid #ced4da; /* Light border */
+            border-radius: 8px; /* Rounded corners */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Shadow for depth */
+        }
+
+        .item {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d; /* Gray button for adding items */
+            border-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268; /* Darker gray on hover */
+            border-color: #545b62;
+        }
+
+        .btn-primary {
+            background-color: #007bff; /* Blue submit button */
+            border-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            border-color: #0056b3;
+        }
+
+        .error-message {
+            color: #dc3545; /* Red color for error messages */
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+    </style>
 </head>
-<body class="container py-5">
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
         <a class="navbar-brand" href="#">Receipt App</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -21,7 +75,7 @@
                     <a class="nav-link" href="index.html">Home</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="add-receipt.html">Add Receipt</a>
+                    <a class="nav-link active" aria-current="page" href="add-receipt.html">Add Receipt</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="search-receipt.html">Search Receipt</a>
@@ -30,73 +84,128 @@
         </div>
     </div>
 </nav>
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <h1 class="text-center mb-4">Submit Receipt</h1>
-        <form id="receiptForm">
-            <div class="mb-3">
-                <label for="retailer" class="form-label">Retailer:</label>
-                <input type="text" id="retailer" name="retailer" class="form-control" required>
-            </div>
 
-            <div class="mb-3">
-                <label for="purchaseDate" class="form-label">Purchase Date:</label>
-                <input type="date" id="purchaseDate" name="purchaseDate" class="form-control" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="purchaseTime" class="form-label">Purchase Time:</label>
-                <input type="time" id="purchaseTime" name="purchaseTime" class="form-control" required>
-            </div>
-
-            <div class="mb-3" id="items">
-                <label for="items" class="form-label">Items:</label>
-                <div class="item mb-2">
-                    <input type="text" name="items[0][shortDescription]" class="form-control" placeholder="Short Description" required>
-                    <input type="number" step="0.01" name="items[0][price]" class="form-control" placeholder="Price" required>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="text-center mb-4">Submit Receipt</h1>
+            <form id="receiptForm" onsubmit="return submitForm()">
+                <div class="mb-3">
+                    <label for="retailer" class="form-label">Retailer:</label>
+                    <input type="text" id="retailer" name="retailer" class="form-control" required>
+                    <div class="error-message" id="retailerError"></div>
                 </div>
-                <button type="button" class="btn btn-secondary" onclick="addItem()">Add Item</button>
-            </div>
 
-            <div class="mb-3">
-                <label for="total" class="form-label">Total:</label>
-                <input type="number" step="0.01" id="total" name="total" class="form-control" required>
-            </div>
+                <div class="mb-3">
+                    <label for="purchaseDate" class="form-label">Purchase Date:</label>
+                    <input type="date" id="purchaseDate" name="purchaseDate" class="form-control" required>
+                    <div class="error-message" id="purchaseDateError"></div>
+                </div>
 
-            <button type="button" class="btn btn-primary" onclick="submitForm()">Submit Receipt</button>
-        </form>
+                <div class="mb-3">
+                    <label for="purchaseTime" class="form-label">Purchase Time:</label>
+                    <input type="time" id="purchaseTime" name="purchaseTime" class="form-control" required>
+                    <div class="error-message" id="purchaseTimeError"></div>
+                </div>
+
+                <div class="mb-3" id="itemsContainer">
+                    <label class="form-label">Items:</label>
+                    <div id="items">
+                        <div class="item mb-2">
+                            <input type="text" id="item0ShortDescription" class="form-control" placeholder="Short Description" required>
+                            <input type="number" step="0.01" id="item0Price" class="form-control" placeholder="Price" required>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="addItem()">Add Item</button>
+                </div>
+
+                <div class="mb-3">
+                    <label for="total" class="form-label">Total:</label>
+                    <input type="number" step="0.01" id="total" name="total" class="form-control" required>
+                    <div class="error-message" id="totalError"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Submit Receipt</button>
+            </form>
+        </div>
     </div>
 </div>
 
-<!-- Bootstrap JS (optional for some features like tooltips, popovers, etc.) -->
+<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Custom JavaScript -->
 <script>
+    let itemCount = 0;
+
     function addItem() {
-        const newItem = `<div class="item mb-2">
-                <input type="text" name="items[${Date.now()}][shortDescription]" class="form-control" placeholder="Short Description" required>
-                <input type="number" step="0.01" name="items[${Date.now()}][price]" class="form-control" placeholder="Price" required>
+        itemCount++;
+        const newItem = `
+            <div class="item mb-2">
+                <input type="text" id="item${itemCount}ShortDescription" class="form-control" placeholder="Short Description" required>
+                <input type="number" step="0.01" id="item${itemCount}Price" class="form-control" placeholder="Price" required>
             </div>`;
         document.getElementById('items').insertAdjacentHTML('beforeend', newItem);
     }
 
     function submitForm() {
-        const form = document.getElementById('receiptForm');
-        const formData = new FormData(form);
+        const retailer = document.getElementById('retailer').value.trim();
+        const purchaseDate = document.getElementById('purchaseDate').value;
+        const purchaseTime = document.getElementById('purchaseTime').value;
+        const total = document.getElementById('total').value.trim();
 
-        // Convert FormData to JSON object
-        const jsonData = {};
-        formData.forEach((value, key) => {
-            if (key.includes('items')) {
-                const [index, field] = key.match(/\d+/g);
-                if (!jsonData.items) jsonData.items = [];
-                if (!jsonData.items[index]) jsonData.items[index] = {};
-                jsonData.items[index][field] = value;
-            } else {
-                jsonData[key] = value;
+        // Validate retailer
+        if (retailer === '') {
+            document.getElementById('retailerError').innerText = 'Retailer is required';
+            return false;
+        } else {
+            document.getElementById('retailerError').innerText = '';
+        }
+
+        // Validate purchase date
+        if (purchaseDate === '') {
+            document.getElementById('purchaseDateError').innerText = 'Purchase Date is required';
+            return false;
+        } else {
+            document.getElementById('purchaseDateError').innerText = '';
+        }
+
+        // Validate purchase time
+        if (purchaseTime === '') {
+            document.getElementById('purchaseTimeError').innerText = 'Purchase Time is required';
+            return false;
+        } else {
+            document.getElementById('purchaseTimeError').innerText = '';
+        }
+
+        // Validate total
+        if (total === '') {
+            document.getElementById('totalError').innerText = 'Total is required';
+            return false;
+        } else {
+            document.getElementById('totalError').innerText = '';
+        }
+
+        // Prepare JSON data
+        const items = [];
+        for (let i = 0; i <= itemCount; i++) {
+            const shortDescription = document.getElementById(`item${i}ShortDescription`).value.trim();
+            const price = document.getElementById(`item${i}Price`).value.trim();
+            if (shortDescription !== '' && price !== '') {
+                items.push({
+                    shortDescription: shortDescription,
+                    price: price
+                });
             }
-        });
+        }
+
+        const jsonData = {
+            retailer: retailer,
+            purchaseDate: purchaseDate,
+            purchaseTime: purchaseTime,
+            items: items,
+            total: total
+        };
 
         // Convert JSON object to JSON string
         const jsonString = JSON.stringify(jsonData);
@@ -109,19 +218,26 @@
             },
             body: jsonString,
         })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
                 console.log('Success:', data);
                 // Handle success response here
                 alert('Receipt submitted successfully!');
-                form.reset();
-
+                document.getElementById('receiptForm').reset();
+                window.location.href = 'index.html'; // Redirect to home page after submission
             })
-            .catch((error) => {
+            .catch(error => {
                 console.error('Error:', error);
                 // Handle error condition here
                 alert('Error submitting receipt');
             });
+
+        return false; // Prevent form submission
     }
 </script>
 </body>
