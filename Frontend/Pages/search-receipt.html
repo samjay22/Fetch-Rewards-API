@@ -229,7 +229,7 @@
         }
 
         document.getElementById('pagination').innerHTML = paginationHTML;
-        totalPages = totalPages;
+        TotalPages = totalPages;
     }
 
     // Function to navigate to a specific page
@@ -248,7 +248,7 @@
 
     // Function to go to the next page
     function nextPage() {
-        if (currentPage < totalPages) {
+        if (currentPage < TotalPages) {
             currentPage++;
             fetchReceipts();
         }
