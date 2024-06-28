@@ -54,9 +54,6 @@ Security Measures
     SSL Certificate: Ensures secure communication between clients and the server.
     Web Proxy: Implemented in C# .NET, hosted on a VPS behind a Cloudflare-managed domain.
     Tunnel Setup: Uses Cloudflare for DNS management and VPN tunnels via No-Trust to secure API requests.
-
-Deployment
-
     Server: Custom-built server hosted behind my proxy and VPN tunnel into my network.
     Cloudflare: Acts as a reverse proxy, providing an additional layer of security and performance optimization.
 
