@@ -48,7 +48,7 @@ func initServices(logger *zerolog.Logger, cfg *Structs.Config) (*ServicesContain
 		Delegate: func(db *sql.DB) {
 			db.SetConnMaxLifetime(time.Minute * 5)
 			db.SetConnMaxIdleTime(time.Minute)
-			db.SetMaxOpenConns(2)
+			db.SetMaxOpenConns(10)
 		},
 	}
 

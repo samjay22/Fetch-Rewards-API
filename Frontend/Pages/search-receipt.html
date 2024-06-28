@@ -13,8 +13,8 @@
         }
 
         .navbar {
-            background-color: #343a40; /* Dark gray navbar */
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Lighter border */
+            background-color: #343a40;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .navbar-brand {
@@ -32,13 +32,13 @@
 
         .receipt-card {
             margin-bottom: 20px;
-            border: 1px solid rgba(0, 0, 0, 0.125); /* Card border */
-            border-radius: 8px; /* Rounded corners */
+            border: 1px solid rgba(0, 0, 0, 0.125);
+            border-radius: 8px;
         }
 
         .card-header {
-            background-color: #f8f9fa; /* Light gray header */
-            border-bottom: 1px solid rgba(0, 0, 0, 0.125); /* Divider line */
+            background-color: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
             padding: 10px;
         }
 
@@ -52,29 +52,29 @@
         }
 
         .page-link {
-            color: #007bff; /* Blue page link */
-            border-color: #007bff; /* Blue border color */
+            color: #007bff;
+            border-color: #007bff;
         }
 
         .page-link:hover {
-            color: #0056b3; /* Darker blue on hover */
-            text-decoration: none; /* Remove underline */
-            background-color: #f8f9fa; /* Light gray background on hover */
+            color: #0056b3;
+            text-decoration: none;
+            background-color: #f8f9fa;
         }
 
         .page-item.active .page-link {
-            background-color: #007bff; /* Active page background color */
-            border-color: #007bff; /* Active page border color */
+            background-color: #007bff;
+            border-color: #007bff;
         }
 
         .btn-primary {
-            background-color: #007bff; /* Primary button color */
-            border-color: #007bff; /* Primary button border color */
+            background-color: #007bff;
+            border-color: #007bff;
         }
 
         .btn-primary:hover {
-            background-color: #0056b3; /* Darker blue on hover */
-            border-color: #0056b3; /* Darker blue border on hover */
+            background-color: #0056b3;
+            border-color: #0056b3;
         }
     </style>
 </head>
@@ -140,20 +140,20 @@
     </div>
 </div>
 
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- Custom JavaScript -->
 <script>
     let currentPage = 1;
     let totalPages = 1;
-    const pageSize = 10; // Number of items per page
+    const pageSize = 10;
     let debounceTimer;
 
     // Function to debounce input and fetch receipts
     function debouncedFetchReceipts() {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(fetchReceipts, 300); // Adjust debounce delay as needed (e.g., 300ms)
+        debounceTimer = setTimeout(() => {
+            currentPage = 1; // Reset to page 1 on debounce fetch
+            fetchReceipts();
+        }, 300); // Adjust debounce delay as needed (e.g., 300ms)
     }
 
     // Function to fetch receipts based on search criteria and pagination
@@ -168,12 +168,12 @@
         };
 
         const params = new URLSearchParams();
+        params.append('page', currentPage);
         for (const key in searchTerm) {
             if (searchTerm[key]) {
                 params.append(key, searchTerm[key]);
             }
         }
-        params.append('page', currentPage);
 
         fetch(`/receipts?${params.toString()}`)
             .then(response => {
@@ -183,53 +183,89 @@
                 return response.json();
             })
             .then(data => {
-                // Clear previous results
-                document.getElementById('receiptsContainer').innerHTML = '';
+                // Update total pages based on fetched data
+                totalPages = data.maxPages;
 
-                // Populate receipts
-                data.receipts.forEach(receipt => {
-                    const card = `
-                            <div class="card receipt-card">
-                                <div class="card-header">
-                                    <strong>ID:</strong> ${receipt.id} |
-                                    <strong>Retailer:</strong> ${receipt.retailer} |
-                                    <strong>Purchase Date:</strong> ${receipt.purchaseDate} |
-                                    <strong>Purchase Time:</strong> ${receipt.purchaseTime} |
-                                    <strong>Total:</strong> $${receipt.total} |
-                                    <strong>Fetch Points:</strong> ${receipt.points}
-                                </div>
-                                <div class="card-body">
-                                    <ul class="list-group list-group-flush">
-                                        ${receipt.items.map(item => `
-                                            <li class="list-group-item">${item.shortDescription}: $${item.price}</li>
-                                        `).join('')}
-                                    </ul>
-                                </div>
-                            </div>
-                        `;
-                    document.getElementById('receiptsContainer').innerHTML += card;
-                });
+                // Update UI with fetched receipts
+                updateReceiptsUI(data.receipts);
 
-                // Update pagination
-                updatePagination(data.maxPages);
+                // Update pagination buttons
+                updatePagination();
             })
             .catch(error => console.error('Error fetching receipts:', error));
     }
 
-    // Function to update pagination buttons
-    function updatePagination(totalPages) {
-        let paginationHTML = '';
+    // Function to update UI with fetched receipts
+    function updateReceiptsUI(receipts) {
+        const container = document.getElementById('receiptsContainer');
+        container.innerHTML = ''; // Clear previous results
 
-        for (let page = Math.max(1, currentPage - 2); page <= Math.min(totalPages, currentPage + 2); page++) {
-            paginationHTML += `
-                    <li class="page-item ${page === currentPage ? 'active' : ''}">
-                        <button class="page-link" onclick="goToPage(${page})">${page}</button>
-                    </li>
-                `;
+        receipts.forEach(receipt => {
+            const card = createReceiptCard(receipt);
+            container.appendChild(card);
+        });
+    }
+
+    // Function to create HTML for a receipt card
+    function createReceiptCard(receipt) {
+        const card = document.createElement('div');
+        card.className = 'card receipt-card';
+
+        card.innerHTML = `
+            <div class="card-header">
+                <strong>ID:</strong> ${receipt.id} |
+                <strong>Retailer:</strong> ${receipt.retailer} |
+                <strong>Purchase Date:</strong> ${receipt.purchaseDate} |
+                <strong>Purchase Time:</strong> ${receipt.purchaseTime} |
+                <strong>Total:</strong> $${receipt.total} |
+                <strong>Fetch Points:</strong> ${receipt.points}
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    ${receipt.items.map(item => `
+                        <li class="list-group-item">${item.shortDescription}: $${item.price}</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+
+        return card;
+    }
+
+    // Function to update pagination buttons
+    function updatePagination() {
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
+
+        // Ensure first and last page buttons are always displayed
+        if (currentPage > 1) {
+            pagination.appendChild(createPaginationButton(1));
         }
 
-        document.getElementById('pagination').innerHTML = paginationHTML;
-        TotalPages = totalPages;
+        for (let page = Math.max(1, currentPage - 2); page <= Math.min(totalPages, currentPage + 2); page++) {
+            if (page == 1 && currentPage > 1){
+                continue
+            }
+            pagination.appendChild(createPaginationButton(page, page === currentPage));
+        }
+
+        if (currentPage < totalPages) {
+            pagination.appendChild(createPaginationButton(totalPages));
+        }
+    }
+
+    // Function to create HTML for a pagination button
+    function createPaginationButton(page, isActive = false) {
+        const button = document.createElement('button');
+        button.className = `page-link ${isActive ? 'active' : ''}`;
+        button.textContent = page;
+        button.onclick = () => goToPage(page);
+
+        const li = document.createElement('li');
+        li.className = 'page-item';
+        li.appendChild(button);
+
+        return li;
     }
 
     // Function to navigate to a specific page
@@ -248,7 +284,7 @@
 
     // Function to go to the next page
     function nextPage() {
-        if (currentPage < TotalPages) {
+        if (currentPage < totalPages) {
             currentPage++;
             fetchReceipts();
         }

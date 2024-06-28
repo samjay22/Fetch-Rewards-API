@@ -83,7 +83,7 @@ func (r *receiptController) QueuePoints(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve points for receipt")
 	}
 
-	return c.JSON(http.StatusOK, map[string]int{"points": points})
+	return c.JSON(http.StatusOK, map[string]int64{"points": points})
 }
 
 func (r *receiptController) ProcessReceipt(data interface{}) {

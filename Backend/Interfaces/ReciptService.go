@@ -13,6 +13,6 @@ type SearchPagePayload struct {
 
 type ReceiptService interface {
 	ProcessReceipt(req *Structs.Receipt) error
-	GetPointsForReceiptById(id string) (int, error)
+	GetPointsForReceiptById(id string) (int64, error)
 	GetReceipts(ctx context.Context, searchTerm *ReceiptFilterRule, page int) (*SearchPagePayload, error)
 }

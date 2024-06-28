@@ -18,20 +18,18 @@ import (
 )
 
 type receiptService struct {
-	logger       *zerolog.Logger
-	dataService  Interfaces2.DatabaseService
-	receiptCache map[string]*Structs2.Receipt // Cache for receipts
+	logger      *zerolog.Logger
+	dataService Interfaces2.DatabaseService
 }
 
 func NewReceiptService(logger *zerolog.Logger, dataService Interfaces2.DatabaseService) Interfaces2.ReceiptService {
 	return &receiptService{
-		logger:       logger,
-		dataService:  dataService,
-		receiptCache: make(map[string]*Structs2.Receipt),
+		logger:      logger,
+		dataService: dataService,
 	}
 }
 
-func (rt *receiptService) GetPointsForReceiptById(id string) (int, error) {
+func (rt *receiptService) GetPointsForReceiptById(id string) (int64, error) {
 	receipt, err := rt.getReceiptById(id)
 	if err != nil {
 		return 0, err
@@ -55,9 +53,6 @@ func (rt *receiptService) ProcessReceipt(receiptEntity *Structs2.Receipt) error 
 	if err != nil {
 		return fmt.Errorf("failed to process receipt: %w", err)
 	}
-
-	// Update cache with the processed receipt
-	rt.receiptCache[receiptEntity.Id] = receiptEntity
 
 	return nil
 }
@@ -93,11 +88,6 @@ func (rt *receiptService) GetReceipts(ctx context.Context, filterBy *Interfaces2
 }
 
 func (rt *receiptService) getReceiptById(id string) (*Structs2.Receipt, error) {
-	// Check if receipt exists in cache
-	if receipt, ok := rt.receiptCache[id]; ok {
-		return receipt, nil
-	}
-
 	// Query the database for the receipt with the given ID
 	r, err := rt.dataService.GetEntityByFilterRule(context.Background(), func(dbI interface{}) (interface{}, error) {
 		receipt := &Structs2.Receipt{}
@@ -118,9 +108,6 @@ func (rt *receiptService) getReceiptById(id string) (*Structs2.Receipt, error) {
 			return nil, err
 		}
 		receipt.Items = items
-
-		// Cache the receipt
-		rt.receiptCache[id] = receipt
 
 		return receipt, nil
 	})
@@ -166,33 +153,31 @@ func (rt *receiptService) insertReceiptAndItems(receiptEntity *Structs2.Receipt,
 			return err
 		}
 
-		// Insert items into 'items' table using bulk insert
+		// Assuming 'tx' is your database transaction object
+
+		// Prepare the SQL statement for bulk insert
 		stmt, err := tx.PrepareContext(context.Background(), "INSERT INTO items (Id, ReceiptId, ShortDescription, Price) VALUES (?, ?, ?, ?)")
 		if err != nil {
 			return err
 		}
 		defer stmt.Close()
 
-		values := make([]interface{}, 0, len(receiptEntity.Items)*4)
+		// Prepare the values to be inserted
 		for _, item := range receiptEntity.Items {
-			values = append(values, item.Id, receiptEntity.Id, item.ShortDescription, item.Price)
-		}
-
-		_, err = stmt.ExecContext(context.Background(), values...)
-		if err != nil {
-			return err
+			_, err = stmt.ExecContext(context.Background(), item.Id, receiptEntity.Id, item.ShortDescription, item.Price)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
+
 	})
 
 	if err != nil {
 		rt.logger.Error().Err(err).Msg("Failed to insert receipt into database")
 		return fmt.Errorf("failed to insert receipt into database: %w", err)
 	}
-
-	// Update cache with the processed receipt
-	rt.receiptCache[receiptEntity.Id] = receiptEntity
 
 	return nil
 }
@@ -360,18 +345,4 @@ func (rt *receiptService) buildReceiptsFilterFunc(ctx context.Context, filterBy 
 			MaxPages: totalPages,
 		}, nil
 	}
-}
-
-func (rt *receiptService) invalidateCache(id string) {
-	delete(rt.receiptCache, id)
-}
-
-// Helper functions (not part of the interface methods)
-
-func (rt *receiptService) clearCache() {
-	rt.receiptCache = make(map[string]*Structs2.Receipt)
-}
-
-func (rt *receiptService) cacheReceipt(receipt *Structs2.Receipt) {
-	rt.receiptCache[receipt.Id] = receipt
 }

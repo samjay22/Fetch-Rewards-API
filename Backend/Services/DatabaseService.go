@@ -24,7 +24,7 @@ type NewDatabaseServiceArgs struct {
 // NewDatabaseService creates a new instance of DatabaseService.
 func NewDatabaseService(args *NewDatabaseServiceArgs) Interfaces.DatabaseService {
 	dbConfig := args.Cfg.Database
-	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s/%s.db?cache=shared", dbConfig.HomeDir, dbConfig.FileName))
+	db, err := sql.Open("sqlite", fmt.Sprintf("file:%s/%s.db?cache=shared&vsf=t", dbConfig.HomeDir, dbConfig.FileName))
 	if err != nil {
 		args.Logger.Fatal().Err(err).Msg("Failed to connect to database")
 		return nil

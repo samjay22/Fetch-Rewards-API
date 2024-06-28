@@ -113,15 +113,73 @@
                     <div id="items">
                         <div class="item mb-2">
                             <input type="text" id="item0ShortDescription" class="form-control" placeholder="Short Description" required>
-                            <input type="number" step="0.01" id="item0Price" class="form-control" placeholder="Price" required>
+                            <input type="number" step="0.01" id="item0Price" class="form-control item-price" placeholder="Price" required onchange="calculateTotal()">
                         </div>
                     </div>
                     <button type="button" class="btn btn-secondary" onclick="addItem()">Add Item</button>
                 </div>
 
                 <div class="mb-3">
-                    <label for="total" class="form-label">Total:</label>
-                    <input type="number" step="0.01" id="total" name="total" class="form-control" required>
+                    <label for="state" class="form-label">State:</label>
+                    <select id="state" name="state" class="form-select" onchange="calculateTotal()">
+                        <option value="0" selected>Select State</option>
+                        <option value="0.05">Alabama (5% Tax)</option>
+                        <option value="0.04">Alaska (4% Tax)</option>
+                        <option value="0.07">Arizona (7% Tax)</option>
+                        <option value="0.07">Arkansas (7% Tax)</option>
+                        <option value="0.0625">California (6.25% Tax)</option>
+                        <option value="0.029">Colorado (2.9% Tax)</option>
+                        <option value="0.0635">Connecticut (6.35% Tax)</option>
+                        <option value="0.06">Delaware (6% Tax)</option>
+                        <option value="0.06">Florida (6% Tax)</option>
+                        <option value="0.04">Georgia (4% Tax)</option>
+                        <option value="0.045">Hawaii (4.5% Tax)</option>
+                        <option value="0.06">Idaho (6% Tax)</option>
+                        <option value="0.0625">Illinois (6.25% Tax)</option>
+                        <option value="0.07">Indiana (7% Tax)</option>
+                        <option value="0.06">Iowa (6% Tax)</option>
+                        <option value="0.065">Kansas (6.5% Tax)</option>
+                        <option value="0.06">Kentucky (6% Tax)</option>
+                        <option value="0.04">Louisiana (4% Tax)</option>
+                        <option value="0.055">Maine (5.5% Tax)</option>
+                        <option value="0.06">Maryland (6% Tax)</option>
+                        <option value="0.0625">Massachusetts (6.25% Tax)</option>
+                        <option value="0.06">Michigan (6% Tax)</option>
+                        <option value="0.06875">Minnesota (6.875% Tax)</option>
+                        <option value="0.07">Mississippi (7% Tax)</option>
+                        <option value="0.04225">Missouri (4.225% Tax)</option>
+                        <option value="0.0">Montana (No Tax)</option>
+                        <option value="0.055">Nebraska (5.5% Tax)</option>
+                        <option value="0.0685">Nevada (6.85% Tax)</option>
+                        <option value="0.065">New Hampshire (No Tax)</option>
+                        <option value="0.07">New Jersey (7% Tax)</option>
+                        <option value="0.055">New Mexico (5.5% Tax)</option>
+                        <option value="0.04">New York (4% Tax)</option>
+                        <option value="0.0475">North Carolina (4.75% Tax)</option>
+                        <option value="0.05">North Dakota (5% Tax)</option>
+                        <option value="0.0575">Ohio (5.75% Tax)</option>
+                        <option value="0.045">Oklahoma (4.5% Tax)</option>
+                        <option value="0.05">Oregon (5% Tax)</option>
+                        <option value="0.06">Pennsylvania (6% Tax)</option>
+                        <option value="0.07">Rhode Island (7% Tax)</option>
+                        <option value="0.06">South Carolina (6% Tax)</option>
+                        <option value="0.045">South Dakota (4.5% Tax)</option>
+                        <option value="0.07">Tennessee (7% Tax)</option>
+                        <option value="0.0625">Texas (6.25% Tax)</option>
+                        <option value="0.0595">Utah (5.95% Tax)</option>
+                        <option value="0.06">Vermont (6% Tax)</option>
+                        <option value="0.053">Virginia (5.3% Tax)</option>
+                        <option value="0.065">Washington (6.5% Tax)</option>
+                        <option value="0.06">West Virginia (6% Tax)</option>
+                        <option value="0.05">Wisconsin (5% Tax)</option>
+                        <option value="0.04">Wyoming (4% Tax)</option>
+                    </select>
+                    <div class="error-message" id="stateError"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="total" class="form-label">Total (Including Tax):</label>
+                    <input type="number" step="0.01" id="total" name="total" class="form-control" readonly value="0.00">
                     <div class="error-message" id="totalError"></div>
                 </div>
 
@@ -130,9 +188,6 @@
         </div>
     </div>
 </div>
-
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Custom JavaScript -->
 <script>
@@ -143,9 +198,30 @@
         const newItem = `
             <div class="item mb-2">
                 <input type="text" id="item${itemCount}ShortDescription" class="form-control" placeholder="Short Description" required>
-                <input type="number" step="0.01" id="item${itemCount}Price" class="form-control" placeholder="Price" required>
+                <input type="number" step="0.01" id="item${itemCount}Price" class="form-control item-price" placeholder="Price" required onchange="calculateTotal()">
             </div>`;
         document.getElementById('items').insertAdjacentHTML('beforeend', newItem);
+    }
+
+    function calculateTotal() {
+        const stateTaxRate = document.getElementById('state').value;
+
+        let subtotal = 0;
+
+        // Calculate subtotal based on item prices
+        for (let i = 0; i <= itemCount; i++) {
+            const price = parseFloat(document.getElementById(`item${i}Price`).value.trim());
+            if (!isNaN(price)) {
+                subtotal += price;
+            }
+        }
+
+        // Calculate total with state tax
+        const stateTax = subtotal * stateTaxRate;
+        const total = subtotal + stateTax;
+
+        // Update total field with formatted value
+        document.getElementById('total').value = total.toFixed(2);
     }
 
     function submitForm() {
@@ -153,6 +229,7 @@
         const purchaseDate = document.getElementById('purchaseDate').value;
         const purchaseTime = document.getElementById('purchaseTime').value;
         const total = document.getElementById('total').value.trim();
+        const state = document.getElementById('state').value.trim();
 
         // Validate retailer
         if (retailer === '') {
@@ -178,6 +255,14 @@
             document.getElementById('purchaseTimeError').innerText = '';
         }
 
+        // Validate state
+        if (state === '0') {
+            document.getElementById('stateError').innerText = 'Please select a state';
+            return false;
+        } else {
+            document.getElementById('stateError').innerText = '';
+        }
+
         // Validate total
         if (total === '') {
             document.getElementById('totalError').innerText = 'Total is required';
@@ -186,7 +271,7 @@
             document.getElementById('totalError').innerText = '';
         }
 
-        // Prepare JSON data
+        // Prepare JSON data for submission
         const items = [];
         for (let i = 0; i <= itemCount; i++) {
             const shortDescription = document.getElementById(`item${i}ShortDescription`).value.trim();
@@ -203,6 +288,7 @@
             retailer: retailer,
             purchaseDate: purchaseDate,
             purchaseTime: purchaseTime,
+            state: state,
             items: items,
             total: total
         };
@@ -210,7 +296,6 @@
         // Convert JSON object to JSON string
         const jsonString = JSON.stringify(jsonData);
 
-        // Send JSON string to backend endpoint
         fetch('/receipts/process', {
             method: 'POST',
             headers: {
@@ -237,8 +322,12 @@
                 alert('Error submitting receipt');
             });
 
+        alert('Receipt submitted successfully!');
+        document.getElementById('receiptForm').reset();
+        document.getElementById('total').value = '0.00'; // Reset total to 0.00
         return false; // Prevent form submission
     }
 </script>
+
 </body>
 </html>
