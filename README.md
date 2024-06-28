@@ -6,6 +6,11 @@ OpenAPI Specification
 
 The project adheres to the OpenAPI 3.0.3 standard. Below is a summary of the API endpoints defined:
 
+Live Instance:
+
+    https://blox-api.com/
+    
+
 Endpoints
 
     Submit Receipt
@@ -55,12 +60,16 @@ Deployment
     Server: Custom-built server hosted behind my proxy and VPN tunnel into my network.
     Cloudflare: Acts as a reverse proxy, providing an additional layer of security and performance optimization.
 
-Usage
+Setup
 
     1: Clone the repo using git clone https://github.com/samjay22/Fetch-Rewards-API/
     2: run cd Fetch-Rewards-API to navigate into the repo directory
     3: Ensure golang version 22 or higher is installed. Run go mod tidy in the directory to obtain dependencies and refresh the project index
     4: Build the go binary by running go build -o MY_EXE_NAME
+
+Configurations
+
+    There is a configuration file that contains the projects core configurations. The settings for users testing the project will be the host and port, that will determine where the application is hosted and on what port. Also note the SSL certificate and SSL Pem Key file paths are configured in the configuration as well. Modification of these two settings will break the project unless the user knows what they are doing. Testers will receieve a CRT_NAME_MISMATCH error as the SSL certificate is set to run on my server's IP not other users host machines. Be aware of the limitations, however, the live instance running at the provided URL follows all of the mentioned details.
     
 Conclusion
 
