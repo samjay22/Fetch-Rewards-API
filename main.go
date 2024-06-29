@@ -16,10 +16,76 @@ import (
 	"time"
 )
 
-func loadConfig(logger *zerolog.Logger) (*Structs.Config, error) {
+type ServicesContainer struct {
+	dataService    Interfaces2.DatabaseService
+	cacheService   Interfaces2.CacheService
+	receiptService Interfaces2.ReceiptService
+	itemService    Interfaces2.ItemService
+	pointsService  Interfaces2.PointsService
+	queueService   Interfaces2.QueueService
+}
+
+type App struct {
+	logger           zerolog.Logger
+	config           *Structs.Config
+	serviceContainer *ServicesContainer
+	echoClient       *echo.Echo
+}
+
+func main() {
+	app := App{}
+
+	err := app.initialize()
+	if err != nil {
+		app.logger.Fatal().Err(err).Msg("Failed to initialize application")
+	}
+
+	hostString := fmt.Sprintf("%s:%s", app.config.Server.Host, app.config.Server.Port)
+	app.logger.Fatal().Err(app.echoClient.StartTLS(hostString, app.config.Server.SSLCert, app.config.Server.SSLKey))
+}
+
+func (app *App) initialize() error {
+	// Initialize logger
+	app.logger = zerolog.New(
+		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+	).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
+	app.logger.Log().Msg("Logging Active!")
+
+	// Load configuration
+	config, err := app.loadConfig()
+	if err != nil {
+		return err
+	}
+	app.config = config
+	app.logger.Log().Msg("Loaded Configs!")
+
+	// Initialize services
+	serviceContainer, err := app.initServices(config)
+	if err != nil {
+		return err
+	}
+	app.serviceContainer = serviceContainer
+	app.logger.Log().Msg("Loaded Services!")
+
+	// Initialize Echo server
+	app.echoClient = echo.New()
+	app.setupMiddleware()
+	app.logger.Log().Msg("Loaded Middleware!")
+
+	// Register controllers
+	err = app.registerControllers()
+	if err != nil {
+		return err
+	}
+	app.logger.Log().Msg("Loaded Controllers!")
+
+	return nil
+}
+
+func (app *App) loadConfig() (*Structs.Config, error) {
 	f, err := os.Open("Backend/Configs/ENV.yml")
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to open config.yml")
+		app.logger.Fatal().Err(err).Msg("Failed to open config.yml")
 		return nil, err
 	}
 	defer f.Close()
@@ -28,101 +94,106 @@ func loadConfig(logger *zerolog.Logger) (*Structs.Config, error) {
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to parse config.yml")
+		app.logger.Fatal().Err(err).Msg("Failed to parse config.yml")
 		return nil, err
 	}
 
 	return &cfg, nil
 }
 
-type ServicesContainer struct {
-	dataService    Interfaces2.DatabaseService
-	receiptService Interfaces2.ReceiptService
-}
+func (app *App) initServices(cfg *Structs.Config) (*ServicesContainer, error) {
+	logger := &app.logger
 
-func initServices(logger *zerolog.Logger, cfg *Structs.Config) (*ServicesContainer, error) {
+	cacheService := Services2.NewMemoryCacheService()
 
-	args := Services2.NewDatabaseServiceArgs{
+	dataServiceArgs := Services2.NewDatabaseServiceArgs{
 		Logger: logger,
 		Cfg:    cfg,
 		Delegate: func(db *sql.DB) {
+			dbConfig := cfg.Database
 			db.SetConnMaxLifetime(time.Minute * 5)
 			db.SetConnMaxIdleTime(time.Minute)
-			db.SetMaxOpenConns(10)
+			db.SetMaxOpenConns(-1)
+
+			for _, tableDef := range dbConfig.TableDef {
+				query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (", tableDef.TableName)
+
+				// Construct column definitions
+				for i, rowData := range tableDef.TableRows {
+					keyType := ""
+					if rowData.IsPrimaryKey {
+						keyType = "PRIMARY KEY"
+					}
+
+					nullState := "NOT NULL"
+					if rowData.IsNull {
+						nullState = ""
+					}
+
+					// Add column definition to query
+					query += fmt.Sprintf("%s %s %s %s", rowData.RowId, rowData.DataType, keyType, nullState)
+					if i < len(tableDef.TableRows)-1 {
+						query += ","
+					}
+				}
+
+				query += ") WITHOUT ROWID"
+
+				// Execute the query
+				_, err := db.Exec(query)
+				if err != nil {
+					logger.Fatal().Err(err).Msgf("Failed to create table %s", tableDef.TableName)
+				}
+
+				fmt.Printf("Table %s created successfully.\n", tableDef.TableName)
+			}
 		},
+		ConnectionString: fmt.Sprintf("file:%s/%s.db?cache=shared", cfg.Database.HomeDir, cfg.Database.FileName),
+	}
+	dataService := Services2.NewDatabaseService(&dataServiceArgs)
+
+	queueService := Services2.NewQueueService(logger)
+	itemService := Services2.NewItemService(dataService, cacheService, logger)
+	pointsService := Services2.NewPointsService(cfg)
+
+	recServiceArgs := &Services2.NewReceiptServiceArgs{
+		Logger:        logger,
+		Cfg:           cfg,
+		DataService:   dataService,
+		ItemService:   itemService,
+		PointsService: pointsService,
+		CacheService:  cacheService,
 	}
 
-	dataService := Services2.NewDatabaseService(&args)
-	recService := Services2.NewReceiptService(logger, dataService)
+	recService := Services2.NewReceiptService(recServiceArgs)
+
 	return &ServicesContainer{
 		dataService:    dataService,
 		receiptService: recService,
+		itemService:    itemService,
+		pointsService:  pointsService,
+		queueService:   queueService,
+		cacheService:   cacheService,
 	}, nil
 }
 
-func registerMiddleware(echoClient *echo.Echo, logger *zerolog.Logger) {
-	echoClient.Use(middleware.RequestID())
-	echoClient.Use(middleware.AddTrailingSlash())
-	echoClient.Use(middleware.Recover())
-	echoClient.Use(Middleware.Logger(logger))
+func (app *App) setupMiddleware() {
+	app.echoClient.Use(middleware.RequestID())
+	app.echoClient.Use(middleware.AddTrailingSlash())
+	app.echoClient.Use(middleware.Recover())
+	app.echoClient.Use(Middleware.Logger(&app.logger))
 }
 
-// Uncle Bob AKA Robert C. Martin suggested to avoid having more than 3 arguments in a function, always compress if possible.
-type controllerArgs struct {
-	echoClient *echo.Echo
-	logger     *zerolog.Logger
-	cfg        *Structs.Config
-	container  *ServicesContainer
-}
+func (app *App) registerControllers() error {
+	receiptControllerArgs := &Controllers.ReceiptControllerArgs{
+		Logger:       &app.logger,
+		EchoClient:   app.echoClient,
+		DataService:  app.serviceContainer.receiptService,
+		QueueService: app.serviceContainer.queueService,
+	}
 
-func registerControllers(args *controllerArgs) error {
-	Controllers.RegisterReceiptController(args.logger, args.echoClient, args.container.receiptService)
+	app.echoClient.Static("/", "Frontend/Pages")
+
+	Controllers.RegisterReceiptController(receiptControllerArgs)
 	return nil
-}
-
-func main() {
-	logger := zerolog.New(
-		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
-	).Level(zerolog.TraceLevel).With().Timestamp().Caller().Logger()
-
-	logger.Log().Msg("Logging Active!")
-
-	//We already logged the error
-	config, err := loadConfig(&logger)
-	if err != nil {
-		return
-	}
-
-	logger.Log().Msg("Loaded Configs!")
-
-	serviceContainer, err := initServices(&logger, config)
-	if err != nil {
-		return
-	}
-
-	logger.Log().Msg("Loaded Services!")
-
-	//Register API controllers, middleware, and static pages
-	networkClient := echo.New()
-	networkClient.Static("/", "Frontend/Pages")
-	registerMiddleware(networkClient, &logger)
-	logger.Log().Msg("Loaded Middleware!")
-
-	args := controllerArgs{
-		echoClient: networkClient,
-		logger:     &logger,
-		cfg:        config,
-		container:  serviceContainer,
-	}
-
-	err = registerControllers(&args)
-	if err != nil {
-		logger.Fatal().Err(err)
-		return
-	}
-
-	logger.Log().Msg("Loaded Controllers!")
-
-	hostString := fmt.Sprintf("%s:%s", config.Server.Host, config.Server.Port)
-	logger.Fatal().Err(networkClient.StartTLS(hostString, config.Server.SSLCert, config.Server.SSLKey))
 }

@@ -30,3 +30,7 @@ func (r *ReceiptFilterRule) ApplyDefaults() {
 		r.Points = "%"
 	}
 }
+
+func (r *ReceiptFilterRule) ToString() string {
+	return "ReceiptFilterRule{" + r.Id + r.Retailer + r.PurchaseDate + r.PurchaseTime + r.Total + r.Points + "}"
+}
