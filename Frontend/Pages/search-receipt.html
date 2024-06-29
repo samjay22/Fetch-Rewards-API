@@ -237,19 +237,29 @@
         const pagination = document.getElementById('pagination');
         pagination.innerHTML = '';
 
-        // Ensure first and last page buttons are always displayed
-        if (currentPage > 1) {
+        // Ensure first page button is always displayed
+        if (currentPage > 3) {
             pagination.appendChild(createPaginationButton(1));
+            if (currentPage > 4) {
+                const ellipsis = document.createElement('li');
+                ellipsis.className = 'page-item disabled';
+                ellipsis.innerHTML = '<span class="page-link">...</span>';
+                pagination.appendChild(ellipsis);
+            }
         }
 
         for (let page = Math.max(1, currentPage - 2); page <= Math.min(totalPages, currentPage + 2); page++) {
-            if (page == 1 && currentPage > 1){
-                continue
-            }
             pagination.appendChild(createPaginationButton(page, page === currentPage));
         }
 
-        if (currentPage < totalPages) {
+        // Ensure last page button is always displayed
+        if (currentPage < totalPages - 2) {
+            if (currentPage < totalPages - 3) {
+                const ellipsis = document.createElement('li');
+                ellipsis.className = 'page-item disabled';
+                ellipsis.innerHTML = '<span class="page-link">...</span>';
+                pagination.appendChild(ellipsis);
+            }
             pagination.appendChild(createPaginationButton(totalPages));
         }
     }

@@ -145,7 +145,13 @@ func (rt *receiptService) getReceiptById(id string) (*Structs2.Receipt, error) {
 }
 
 func (rt *receiptService) insertReceiptAndItems(receiptEntity *Structs2.Receipt, points int) error {
-	err := rt.dataService.AddEntity(context.Background(), func(i interface{}) error {
+	//Invalidate cache
+	err := rt.cacheService.Purge()
+	if err != nil {
+		return fmt.Errorf("error with purge cache request!")
+	}
+
+	err = rt.dataService.AddEntity(context.Background(), func(i interface{}) error {
 		db, ok := i.(*sql.DB)
 		if !ok {
 			return fmt.Errorf("invalid database connection")

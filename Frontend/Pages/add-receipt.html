@@ -89,7 +89,7 @@
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <h1 class="text-center mb-4">Submit Receipt</h1>
-            <form id="receiptForm" onsubmit="return submitForm()">
+            <form id="receiptForm" onsubmit="return submitForm(event)">
                 <div class="mb-3">
                     <label for="retailer" class="form-label">Retailer:</label>
                     <input type="text" id="retailer" name="retailer" class="form-control" required>
@@ -204,15 +204,17 @@
     }
 
     function calculateTotal() {
-        const stateTaxRate = document.getElementById('state').value;
-
+        const stateTaxRate = parseFloat(document.getElementById('state').value) || 0;
         let subtotal = 0;
 
         // Calculate subtotal based on item prices
         for (let i = 0; i <= itemCount; i++) {
-            const price = parseFloat(document.getElementById(`item${i}Price`).value.trim());
-            if (!isNaN(price)) {
-                subtotal += price;
+            const priceElement = document.getElementById(`item${i}Price`);
+            if (priceElement) {
+                const price = parseFloat(priceElement.value.trim());
+                if (!isNaN(price)) {
+                    subtotal += price;
+                }
             }
         }
 
@@ -224,7 +226,9 @@
         document.getElementById('total').value = total.toFixed(2);
     }
 
-    function submitForm() {
+    function submitForm(event) {
+        event.preventDefault(); // Prevent form from submitting the traditional way
+
         const retailer = document.getElementById('retailer').value.trim();
         const purchaseDate = document.getElementById('purchaseDate').value;
         const purchaseTime = document.getElementById('purchaseTime').value;
@@ -234,7 +238,7 @@
         // Validate retailer
         if (retailer === '') {
             document.getElementById('retailerError').innerText = 'Retailer is required';
-            return false;
+            return;
         } else {
             document.getElementById('retailerError').innerText = '';
         }
@@ -242,7 +246,7 @@
         // Validate purchase date
         if (purchaseDate === '') {
             document.getElementById('purchaseDateError').innerText = 'Purchase Date is required';
-            return false;
+            return;
         } else {
             document.getElementById('purchaseDateError').innerText = '';
         }
@@ -250,7 +254,7 @@
         // Validate purchase time
         if (purchaseTime === '') {
             document.getElementById('purchaseTimeError').innerText = 'Purchase Time is required';
-            return false;
+            return;
         } else {
             document.getElementById('purchaseTimeError').innerText = '';
         }
@@ -258,7 +262,7 @@
         // Validate state
         if (state === '0') {
             document.getElementById('stateError').innerText = 'Please select a state';
-            return false;
+            return;
         } else {
             document.getElementById('stateError').innerText = '';
         }
@@ -266,7 +270,7 @@
         // Validate total
         if (total === '') {
             document.getElementById('totalError').innerText = 'Total is required';
-            return false;
+            return;
         } else {
             document.getElementById('totalError').innerText = '';
         }
@@ -310,22 +314,15 @@
                 return response.json();
             })
             .then(data => {
-                console.log('Success:', data);
-                // Handle success response here
                 alert('Receipt submitted successfully!');
                 document.getElementById('receiptForm').reset();
+                document.getElementById('total').value = '0.00'; // Reset total to 0.00
                 window.location.href = 'index.html'; // Redirect to home page after submission
             })
             .catch(error => {
                 console.error('Error:', error);
-                // Handle error condition here
                 alert('Error submitting receipt');
             });
-
-        alert('Receipt submitted successfully!');
-        document.getElementById('receiptForm').reset();
-        document.getElementById('total').value = '0.00'; // Reset total to 0.00
-        return false; // Prevent form submission
     }
 </script>
 

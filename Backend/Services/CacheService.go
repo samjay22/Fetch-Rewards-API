@@ -42,3 +42,10 @@ func (m *MemoryCacheService) Delete(key string) error {
 	delete(m.cache, key)
 	return nil
 }
+
+func (m *MemoryCacheService) Purge() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cache = make(map[string]interface{})
+	return nil
+}
