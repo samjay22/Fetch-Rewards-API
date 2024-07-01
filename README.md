@@ -160,5 +160,3 @@ User -> Frontend -> API Gateway -> Points Retrieval Service -> Database
 For further technical details, questions, or contributions, please reach out via email at samjaytaylor22@gmail.com.
 
 ---
-
-Would you like me to create specific flow diagrams, database schemas, or further elaborate on any particular section?
