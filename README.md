@@ -63,6 +63,9 @@ Setup
     2: run cd Fetch-Rewards-API to navigate into the repo directory
     3: Ensure golang version 22 or higher is installed. Run go mod tidy in the directory to obtain dependencies and refresh the project index
     4: Build the go binary by running go build -o MY_EXE_NAME
+    5. Run the EXE that was created.
+
+    PS. There is already an EXE in the project, if you do not want to run these magical cmds, run the EXE.
 
 Configurations
 
