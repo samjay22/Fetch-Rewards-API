@@ -68,7 +68,7 @@ func (r *receiptController) QueuePoints(c echo.Context) error {
 	points, err := r.ReceiptService.GetPointsForReceiptById(receiptID)
 	if err != nil {
 		r.Logger.Error().Err(err).Msg("Error retrieving points for receipt")
-		return echo.NewHTTPError(http.StatusInternalServerError, "No receipt found for that Id")
+		return echo.NewHTTPError(http.StatusNotFound, "No receipt found for that Id")
 	}
 
 	return c.JSON(http.StatusOK, map[string]int64{"points": points})
