@@ -14,13 +14,17 @@ type queueService struct {
 	mu            sync.RWMutex
 }
 
-// NewQueueService creates a new instance of queueService
+// NewQueueService creates a new instance of queueService, this service would be transient, ideally each controller can have one queue.
 func NewQueueService(logger *zerolog.Logger) Interfaces2.QueueService {
-	return &queueService{
+	service := &queueService{
 		eventHandlers: make(map[string]Interfaces2.EventDelegate),
 		eventQueue:    make(chan *Interfaces2.Event, 500), // Buffer size can be adjusted based on expected load
 		logger:        logger,
 	}
+
+	go service.ProcessQueue()
+
+	return service
 }
 
 func (qs *queueService) RegisterEventHandler(eventType string, handler Interfaces2.EventDelegate) {
@@ -59,6 +63,7 @@ func (qs *queueService) QueueEvent(eventType string, data interface{}) (interfac
 	}
 }
 
+// ProcessQueue this method processes the event queue
 func (qs *queueService) ProcessQueue() {
 	for event := range qs.eventQueue {
 		go func(e *Interfaces2.Event) {

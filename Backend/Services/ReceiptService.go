@@ -1,14 +1,13 @@
 package Services
 
 import (
+	Interfaces2 "Fetch-Rewards-API/Backend/Interfaces"
+	"Fetch-Rewards-API/Backend/ServerUtility"
+	Structs2 "Fetch-Rewards-API/Shared/Structs"
 	"context"
 	"database/sql"
 	"fmt"
 	"math"
-	"strings"
-
-	Interfaces2 "Fetch-Rewards-API/Backend/Interfaces"
-	Structs2 "Fetch-Rewards-API/Shared/Structs"
 
 	"github.com/rs/zerolog"
 )
@@ -65,6 +64,7 @@ func (rt *receiptService) GetPointsForReceiptById(id string) (int64, error) {
 }
 
 func (rt *receiptService) ProcessReceipt(receiptEntity *Structs2.Receipt) error {
+	//We are working with a ref, we can set id's without returning the struct
 	rt.itemService.GenerateItemIds(receiptEntity.Items)
 	points := rt.pointsService.CalculatePoints(receiptEntity)
 
@@ -199,19 +199,24 @@ func (rt *receiptService) buildReceiptsFilterFunc(ctx context.Context, filterBy 
 			return nil, fmt.Errorf("unexpected database instance type")
 		}
 
-		whereClauses := []string{"1 = 1"}
+		// Initialize MySQLQueryBuilder
+		queryBuilder := ServerUtility.NewMySQLQueryBuilder()
 
-		filterBy.ApplyDefaults()
-		whereClauses = append(whereClauses, "Id LIKE '"+filterBy.Id+"%'")
-		whereClauses = append(whereClauses, "Retailer LIKE '"+filterBy.Retailer+"%'")
-		whereClauses = append(whereClauses, "PurchaseDate LIKE '"+filterBy.PurchaseDate+"%'")
-		whereClauses = append(whereClauses, "PurchaseTime LIKE '"+filterBy.PurchaseTime+"%'")
-		whereClauses = append(whereClauses, "Total LIKE '"+filterBy.Total+"%'")
-		whereClauses = append(whereClauses, "Points LIKE'"+filterBy.Points+"%'")
+		// Specify fields to select dynamically, entity framework has built in libraries, I needed to do this manually
+		fields := []string{"Id", "Retailer", "PurchaseDate", "PurchaseTime", "Total", "Points"}
+		queryBuilder.
+			Where("Id", filterBy.Id+"%").
+			Where("Retailer", filterBy.Retailer+"%").
+			Where("PurchaseDate", filterBy.PurchaseDate+"%").
+			Where("PurchaseTime", filterBy.PurchaseTime+"%").
+			Where("Total", filterBy.Total+"%").
+			Where("Points", filterBy.Points+"%").
+			Order("Id", "DESC").
+			Limit(pageSize).
+			Offset(offset).
+			SelectFields(fields)
 
-		whereClause := strings.Join(whereClauses, " AND ")
-		query := fmt.Sprintf("SELECT Id, Retailer, PurchaseDate, PurchaseTime, Total, Points FROM Receipts WHERE %s ORDER BY Id DESC LIMIT %d OFFSET %d",
-			whereClause, pageSize, offset)
+		query := queryBuilder.BuildFullQueryOn("Receipts")
 
 		rows, err := dbInstance.Query(query)
 		if err != nil {
@@ -219,14 +224,15 @@ func (rt *receiptService) buildReceiptsFilterFunc(ctx context.Context, filterBy 
 		}
 		defer rows.Close()
 
+		// Process retrieved rows into receipt objects
 		var receipts []Structs2.Receipt
-
 		for rows.Next() {
 			var receipt Structs2.Receipt
 			if err := rows.Scan(&receipt.Id, &receipt.Retailer, &receipt.PurchaseDate, &receipt.PurchaseTime, &receipt.Total, &receipt.Points); err != nil {
 				return nil, fmt.Errorf("error scanning row: %w", err)
 			}
 
+			// Retrieve items associated with each receipt
 			items, err := rt.itemService.GetItemsForReceipt(dbInstance, receipt.Id)
 			if err != nil {
 				return nil, fmt.Errorf("error fetching items for receipt %s: %w", receipt.Id, err)
@@ -240,9 +246,10 @@ func (rt *receiptService) buildReceiptsFilterFunc(ctx context.Context, filterBy 
 			return nil, fmt.Errorf("error iterating over rows: %w", err)
 		}
 
-		countQuery := fmt.Sprintf("SELECT COUNT(Id) FROM Receipts WHERE %s", whereClause)
+		// Query total count of matching receipts for pagination
+		countQuery := queryBuilder.Build()
 		var totalRows int
-		if err := dbInstance.QueryRow(countQuery).Scan(&totalRows); err != nil {
+		if err := dbInstance.QueryRow(fmt.Sprintf("SELECT COUNT(Id) FROM Receipts WHERE %s", countQuery)).Scan(&totalRows); err != nil {
 			return nil, fmt.Errorf("error getting total count: %w", err)
 		}
 

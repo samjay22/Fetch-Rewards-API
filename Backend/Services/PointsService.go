@@ -11,37 +11,73 @@ import (
 	Structs2 "Fetch-Rewards-API/Shared/Structs"
 )
 
+// pointsService implements the Interfaces2.PointsService interface
 type pointsService struct {
-	cfg *Structs2.Config
+	cfg      *Structs2.Config
+	ruleList []func(*Structs2.Receipt) int
 }
 
+// NewPointsService creates a new instance of PointsService
 func NewPointsService(cfg *Structs2.Config) Interfaces2.PointsService {
-	return &pointsService{
+	ps := &pointsService{
 		cfg: cfg,
 	}
+
+	//The logic for calculating points is more extendable if we use the strategy pattern
+	//This change also ensure open closed, and SRP
+	ps.ruleList = []func(*Structs2.Receipt) int{
+		ps.pointsForRetailerName,
+		ps.pointsForRoundTotal,
+		ps.pointsForMultipleOfQuarter,
+		ps.pointsForItems,
+		ps.pointsForItemDescriptions,
+		ps.pointsForOddDay,
+		ps.pointsForAfternoonPurchase,
+	}
+
+	return ps
 }
 
+// CalculatePoints calculates the points for a given receipt based on various rules
 func (ps *pointsService) CalculatePoints(receipt *Structs2.Receipt) int {
 	points := 0
+	for _, rule := range ps.ruleList {
+		points += rule(receipt)
+	}
+	return points
+}
 
-	// Rule 1: One point for every alphanumeric character in the retailer name
-	points += len(regexp.MustCompile("[^a-zA-Z0-9]+").ReplaceAllString(receipt.Retailer, ""))
+// pointsForRetailerName calculates points based on the retailer name
+func (ps *pointsService) pointsForRetailerName(receipt *Structs2.Receipt) int {
+	return len(regexp.MustCompile("[^a-zA-Z0-9]+").ReplaceAllString(receipt.Retailer, ""))
+}
 
-	// Rule 2: 50 points if the total is a round dollar amount with no cents
+// pointsForRoundTotal calculates points if the total is a round dollar amount
+func (ps *pointsService) pointsForRoundTotal(receipt *Structs2.Receipt) int {
 	totalFloat, err := strconv.ParseFloat(receipt.Total, 64)
 	if err == nil && math.Mod(totalFloat, 1) == 0 {
-		points += 50
+		return 50
 	}
+	return 0
+}
 
-	// Rule 3: 25 points if the total is a multiple of 0.25
-	if totalFloat > 0 && math.Mod(totalFloat, 0.25) == 0 {
-		points += 25
+// pointsForMultipleOfQuarter calculates points if the total is a multiple of 0.25
+func (ps *pointsService) pointsForMultipleOfQuarter(receipt *Structs2.Receipt) int {
+	totalFloat, err := strconv.ParseFloat(receipt.Total, 64)
+	if err == nil && math.Mod(totalFloat, 0.25) == 0 {
+		return 25
 	}
+	return 0
+}
 
-	// Rule 4: 5 points for every two items on the receipt
-	points += len(receipt.Items) / 2 * 5
+// pointsForItems calculates points for the number of items on the receipt
+func (ps *pointsService) pointsForItems(receipt *Structs2.Receipt) int {
+	return len(receipt.Items) / 2 * 5
+}
 
-	// Rule 5: If the trimmed length of the item description is a multiple of 3, multiply the price by 0.2 and round up to the nearest integer
+// pointsForItemDescriptions calculates points based on the item descriptions
+func (ps *pointsService) pointsForItemDescriptions(receipt *Structs2.Receipt) int {
+	points := 0
 	for _, item := range receipt.Items {
 		trimmedLength := len(strings.TrimSpace(item.ShortDescription))
 		if trimmedLength > 0 && trimmedLength%3 == 0 {
@@ -50,20 +86,25 @@ func (ps *pointsService) CalculatePoints(receipt *Structs2.Receipt) int {
 			points += additionalPoints
 		}
 	}
+	return points
+}
 
-	// Rule 6: 6 points if the day in the purchase date is odd
+// pointsForOddDay calculates points if the purchase date is an odd day
+func (ps *pointsService) pointsForOddDay(receipt *Structs2.Receipt) int {
 	purchaseDateTime, err := time.Parse("2006-01-02 15:04", receipt.PurchaseDate+" "+receipt.PurchaseTime)
 	if err == nil && purchaseDateTime.Day()%2 != 0 {
-		points += 6
+		return 6
 	}
+	return 0
+}
 
-	// Rule 7: 10 points if the time of purchase is after 2:00pm and before 4:00pm
-	purchaseTime, _ := time.Parse("15:04", receipt.PurchaseTime)
+// pointsForAfternoonPurchase calculates points if the purchase time is between 2:00pm and 4:00pm
+func (ps *pointsService) pointsForAfternoonPurchase(receipt *Structs2.Receipt) int {
+	purchaseTimeParsed, _ := time.Parse("15:04", receipt.PurchaseTime)
 	startTime, _ := time.Parse("15:04", "14:00")
 	endTime, _ := time.Parse("15:04", "16:00")
-	if purchaseTime.After(startTime) && purchaseTime.Before(endTime) {
-		points += 10
+	if purchaseTimeParsed.After(startTime) && purchaseTimeParsed.Before(endTime) {
+		return 10
 	}
-
-	return points
+	return 0
 }

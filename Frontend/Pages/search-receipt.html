@@ -15,6 +15,7 @@
         .navbar {
             background-color: #343a40;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 25px
         }
 
         .navbar-brand {
@@ -79,7 +80,7 @@
     </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="#">Receipt App</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -144,7 +145,6 @@
 <script>
     let currentPage = 1;
     let totalPages = 1;
-    const pageSize = 10;
     let debounceTimer;
 
     // Function to debounce input and fetch receipts
@@ -212,22 +212,27 @@
         card.className = 'card receipt-card';
 
         card.innerHTML = `
-            <div class="card-header">
-                <strong>ID:</strong> ${receipt.id} |
-                <strong>Retailer:</strong> ${receipt.retailer} |
-                <strong>Purchase Date:</strong> ${receipt.purchaseDate} |
-                <strong>Purchase Time:</strong> ${receipt.purchaseTime} |
-                <strong>Total:</strong> $${receipt.total} |
-                <strong>Fetch Points:</strong> ${receipt.points}
-            </div>
-            <div class="card-body">
+        <div class="card-header">
+            <strong>ID:</strong> ${receipt.id} |
+            <strong>Retailer:</strong> ${receipt.retailer} |
+            <strong>Purchase Date:</strong> ${receipt.purchaseDate} |
+            <strong>Purchase Time:</strong> ${receipt.purchaseTime} |
+            <strong>Total:</strong> $${receipt.total} |
+            <strong>Fetch Points:</strong> ${receipt.points}
+        </div>
+        <div class="card-body">
+            <button class="btn btn-primary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseItems${receipt.id}" aria-expanded="false" aria-controls="collapseItems${receipt.id}">
+                Show Receipt Items
+            </button>
+            <div class="collapse" id="collapseItems${receipt.id}">
                 <ul class="list-group list-group-flush">
                     ${receipt.items.map(item => `
                         <li class="list-group-item">${item.shortDescription}: $${item.price}</li>
                     `).join('')}
                 </ul>
             </div>
-        `;
+        </div>
+    `
 
         return card;
     }
