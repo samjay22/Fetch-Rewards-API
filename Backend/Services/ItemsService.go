@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"sync"
 )
 
 type itemService struct {
@@ -33,37 +34,55 @@ func (is *itemService) GenerateItemIds(items []Structs2.PurchasedItem) {
 	}
 }
 
-// GetItemsForReceipt retrieves items for a receipt from the database or cache
 func (is *itemService) GetItemsForReceipt(db *sql.DB, receiptId string) ([]Structs2.PurchasedItem, error) {
 	// Attempt to retrieve items from cache
 	cachedItems, err := is.cacheService.Get("Items_" + receiptId)
-	if err != nil {
-		//is.logger.Error().Err(err).Msg("Failed to get items from cache")
-	} else if cachedItems != nil {
+	if err == nil && cachedItems != nil {
 		if items, ok := cachedItems.([]Structs2.PurchasedItem); ok {
 			return items, nil
 		}
 	}
 
 	// Retrieve items from database
-	rows, err := db.Query("SELECT Id, ShortDescription, Price FROM Items WHERE ReceiptId = '" + receiptId + "'")
+	rows, err := db.Query("SELECT Id, ShortDescription, Price FROM Items WHERE ReceiptId = ?", receiptId)
 	if err != nil {
 		is.logger.Error().Err(err).Msg("Failed to query items from database")
 		return nil, err
 	}
 	defer rows.Close()
 
-	var items []Structs2.PurchasedItem
+	// Channel to collect items and manage concurrency
+	itemsCh := make(chan Structs2.PurchasedItem)
+	var wg sync.WaitGroup
+
+	// Concurrently fetch items
 	for rows.Next() {
 		var item Structs2.PurchasedItem
 		err := rows.Scan(&item.Id, &item.ShortDescription, &item.Price)
 		if err != nil {
 			is.logger.Error().Err(err).Msg("Failed to scan item row")
-			return nil, err
+			continue
 		}
+		wg.Add(1)
+		go func(item Structs2.PurchasedItem) {
+			defer wg.Done()
+			itemsCh <- item
+		}(item)
+	}
+
+	// Close the channel when all items are processed
+	go func() {
+		wg.Wait()
+		close(itemsCh)
+	}()
+
+	// Collect items from the channel
+	var items []Structs2.PurchasedItem
+	for item := range itemsCh {
 		items = append(items, item)
 	}
 
+	// Check for errors during row iteration
 	if err := rows.Err(); err != nil {
 		is.logger.Error().Err(err).Msg("Rows error after scanning")
 		return nil, err
