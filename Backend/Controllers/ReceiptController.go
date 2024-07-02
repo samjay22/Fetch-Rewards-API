@@ -13,6 +13,7 @@ import (
 	"strconv"
 )
 
+//Controller Struct
 type receiptController struct {
 	ReceiptService Interfaces.ReceiptService
 	NetworkClient  *echo.Echo
@@ -20,6 +21,7 @@ type receiptController struct {
 	QueueService   Interfaces.QueueService
 }
 
+// ReceiptControllerArgs this struct cleans up the arguments to the controller init function.
 type ReceiptControllerArgs struct {
 	Logger       *zerolog.Logger
 	EchoClient   *echo.Echo
@@ -27,6 +29,7 @@ type ReceiptControllerArgs struct {
 	QueueService Interfaces.QueueService
 }
 
+// RegisterReceiptController constructor
 func RegisterReceiptController(args *ReceiptControllerArgs) {
 	controller := &receiptController{
 		ReceiptService: args.DataService,
@@ -35,14 +38,17 @@ func RegisterReceiptController(args *ReceiptControllerArgs) {
 		QueueService:   args.QueueService,
 	}
 
+	//Register the handler for the event topic
 	controller.QueueService.RegisterEventHandler("processReceipt", controller.ProcessReceipt)
 	go controller.QueueService.ProcessQueue()
 
+	//Register endpoints for controller
 	controller.NetworkClient.GET("/receipts", controller.GetReceipts)
 	controller.NetworkClient.POST("/receipts/process", controller.QueueReceipt)
 	controller.NetworkClient.GET("/receipts/:id/points", controller.QueuePoints)
 }
 
+// QueueReceipt queue an event to process a receipt
 func (r *receiptController) QueueReceipt(c echo.Context) error {
 	receiptID := uuid.New().String()
 	var req Structs2.Receipt
@@ -53,6 +59,7 @@ func (r *receiptController) QueueReceipt(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "The receipt is invalid")
 	}
 
+	// Submit the event for the topic
 	response, err := r.QueueService.QueueEvent("processReceipt", &req)
 	if err != nil {
 		r.Logger.Error().Err(err).Msg("Error processing receipt")
@@ -62,6 +69,7 @@ func (r *receiptController) QueueReceipt(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
+// QueuePoints we keep the naming convention, this gets points for a given ID
 func (r *receiptController) QueuePoints(c echo.Context) error {
 	receiptID := c.Param("id")
 
@@ -74,6 +82,7 @@ func (r *receiptController) QueuePoints(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]int64{"points": points})
 }
 
+//ProcessReceipt this the a handler for the event topic to process client receipts 
 func (r *receiptController) ProcessReceipt(data interface{}) (interface{}, error) {
 	if receipt, ok := data.(*Structs2.Receipt); ok {
 		err := r.ReceiptService.ProcessReceipt(receipt)
@@ -88,6 +97,7 @@ func (r *receiptController) ProcessReceipt(data interface{}) (interface{}, error
 	}
 }
 
+// GetReceipts get all recipts based on specified filter critiera
 func (r *receiptController) GetReceipts(c echo.Context) error {
 	id := c.QueryParam("id")
 	retailer := c.QueryParam("retailer")
