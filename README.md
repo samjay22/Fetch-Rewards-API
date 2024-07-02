@@ -1,3 +1,5 @@
+### This project was reviewed by a "FETCH Engineer" which clearly didn't test or do anything with the project. Its also clear they did not know SQL and any of the patterns I used based on the feedback.
+
 ### Receipt Processor Project
 
 #### Overview
